@@ -9,6 +9,23 @@
 <body>
   <h1>Welcome to the Car Rental Service</h1>
   <div id="car-list"></div>
+  
+  <form id="login-form">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username" required>
+    <input type="password" id="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+  </form>
+  
+  <form id="add-car-form" style="display: none;">
+    <h2>Add Car</h2>
+    <input type="text" id="make" placeholder="Make" required>
+    <input type="text" id="model" placeholder="Model" required>
+    <input type="number" id="year" placeholder="Year" required>
+    <input type="checkbox" id="available"> Available
+    <button type="submit">Add Car</button>
+  </form>
+  
   <script src="app.js"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const path = require('path');
+const session = require('express-session');
 
 const app = express();
 const port = 3000;
@@ -20,6 +21,14 @@ app.use(
     },
   })
 );
+
+// Session configuration
+app.use(session({
+  secret: 'your-secret-key',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // Set to true if using HTTPS
+}));
 
 // MongoDB connection
 mongoose.connect('mongodb://localhost:27017/wypozyczalnia', {

@@ -2,14 +2,21 @@ const express = require('express');
 const router = express.Router();
 const Car = require('../models/Car');
 const User = require('../models/User');
+const authorize = require('../middleware/authorize');
+const bcrypt = require('bcrypt');
 
 // LOGIN
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   try {
     const user = await User.findOne({ username });
-    if (user && user.password === password) {
-      res.json({ message: 'Login successful' });
+    if (user && await bcrypt.compare(password, user.password)) {
+      req.session.user = {
+        id: user._id,
+        username: user.username,
+        role: user.role
+      }; // Przechowuj użytkownika w sesji
+      res.json({ message: 'Login successful', role: user.role });
     } else {
       res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -18,8 +25,8 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// CREATE
-router.post('/', async (req, res) => {
+// CREATE (only for admin)
+router.post('/', authorize('admin'), async (req, res) => {
   const car = new Car(req.body);
   try {
     const savedCar = await car.save();
@@ -39,8 +46,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// UPDATE
-router.put('/:id', async (req, res) => {
+// UPDATE (only for admin)
+router.put('/:id', authorize('admin'), async (req, res) => {
   try {
     const updatedCar = await Car.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updatedCar);
@@ -49,8 +56,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE
-router.delete('/:id', async (req, res) => {
+// DELETE (only for admin)
+router.delete('/:id', authorize('admin'), async (req, res) => {
   try {
     await Car.findByIdAndDelete(req.params.id);
     res.json({ message: 'Car deleted' });
@@ -70,8 +77,8 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// Initialize sample data
-router.post('/init', async (req, res) => {
+// Initialize sample data (only for admin)
+router.post('/init', authorize('admin'), async (req, res) => {
   const sampleCars = [
     { make: 'Toyota', model: 'Corolla', year: 2020, available: true },
     { make: 'Honda', model: 'Civic', year: 2019, available: true },
