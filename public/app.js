@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const carList = document.getElementById('car-list');
+  const carDetails = document.getElementById('car-details');
+  const closeDetailsButton = document.getElementById('close-details');
 
   function fetchCars() {
     fetch('/api/cars')
@@ -9,16 +11,23 @@ document.addEventListener('DOMContentLoaded', () => {
           carList.innerHTML = ''; // Clear previous results
           data.forEach(car => {
             const carItem = document.createElement('div');
-            carItem.textContent = `${car.make} ${car.model} (${car.year}) - Available: ${car.available}`;
+            carItem.textContent = `${car.make} ${car.model} (${car.year})`;
+            carItem.onclick = () => showCarDetails(car.id);
             if (sessionStorage.getItem('role') === 'admin') {
               const editButton = document.createElement('button');
               editButton.textContent = 'Edit';
-              editButton.onclick = () => editCar(car);
+              editButton.onclick = (event) => {
+                event.stopPropagation();
+                editCar(car);
+              };
               carItem.appendChild(editButton);
 
               const deleteButton = document.createElement('button');
               deleteButton.textContent = 'Delete';
-              deleteButton.onclick = () => deleteCar(car.id);
+              deleteButton.onclick = (event) => {
+                event.stopPropagation();
+                deleteCar(car.id);
+              };
               carItem.appendChild(deleteButton);
             }
             carList.appendChild(carItem);
@@ -28,6 +37,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       })
       .catch(error => console.error('Error fetching car data:', error));
+  }
+
+  function showCarDetails(carId) {
+    fetch(`/api/cars/${carId}`)
+      .then(response => response.json())
+      .then(car => {
+        if (car.rentedBy) {
+          fetch(`/api/cars/users/${car.rentedBy}`)
+            .then(response => response.json())
+            .then(user => {
+              displayCarDetails(car, user);
+            })
+            .catch(error => console.error('Error fetching user data:', error));
+        } else {
+          displayCarDetails(car, null);
+        }
+      })
+      .catch(error => console.error('Error fetching car details:', error));
+  }
+
+  function displayCarDetails(car, user) {
+    const userId = sessionStorage.getItem('userId');
+    const rentButton = userId && car.available ? `<button id="rent-button">Rent</button>` : '';
+    const returnButton = userId && car.rentedBy === parseInt(userId) ? `<button id="return-button">Return</button>` : '';
+
+    carDetails.innerHTML = `
+      <button id="close-details">Close</button>
+      <h2>${car.make} ${car.model} (${car.year})</h2>
+      <p>Available: ${car.available}</p>
+      <p>Rented By: ${user ? user.username : 'N/A'}</p>
+      <p>Rented At: ${car.rentedAt ? new Date(car.rentedAt).toLocaleString() : 'N/A'}</p>
+      <p>Added At: ${new Date(car.createdAt).toLocaleString()}</p>
+      <p>Updated At: ${new Date(car.updatedAt).toLocaleString()}</p>
+      ${rentButton}
+      ${returnButton}
+    `;
+
+    if (userId && car.available) {
+      document.getElementById('rent-button').onclick = () => toggleRentCar(car);
+    }
+    if (userId && car.rentedBy === parseInt(userId)) {
+      document.getElementById('return-button').onclick = () => toggleRentCar(car);
+    }
+
+    document.getElementById('close-details').onclick = () => {
+      carDetails.style.display = 'none';
+    };
+    carDetails.style.display = 'block';
   }
 
   function editCar(car) {
@@ -48,6 +105,18 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchCars();
     })
     .catch(error => console.error('Error deleting car:', error));
+  }
+
+  function toggleRentCar(car) {
+    const url = car.available ? `/api/cars/rent/${car.id}` : `/api/cars/return/${car.id}`;
+    fetch(url, {
+      method: 'POST',
+    })
+    .then(response => response.json())
+    .then(() => {
+      showCarDetails(car.id); // Refresh car details without closing the details view
+    })
+    .catch(error => console.error('Error toggling rent car:', error));
   }
 
   fetchCars();
@@ -71,15 +140,29 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Login successful');
         document.getElementById('login-form').style.display = 'none';
         sessionStorage.setItem('role', data.role);
+        sessionStorage.setItem('userId', data.userId);
+        document.getElementById('logout-button').style.display = 'block';
         if (data.role === 'admin') {
           document.getElementById('add-car-form').style.display = 'block';
         }
+        carDetails.style.display = 'none'; // Close car details
         fetchCars();
       } else {
         alert('Login failed');
       }
     })
     .catch(error => console.error('Error logging in:', error));
+  });
+
+  const logoutButton = document.getElementById('logout-button');
+  logoutButton.addEventListener('click', () => {
+    sessionStorage.removeItem('role');
+    sessionStorage.removeItem('userId');
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('add-car-form').style.display = 'none';
+    document.getElementById('logout-button').style.display = 'none';
+    carDetails.style.display = 'none'; // Close car details
+    fetchCars();
   });
 
   const searchForm = document.getElementById('search-form');
@@ -101,16 +184,23 @@ document.addEventListener('DOMContentLoaded', () => {
           carList.innerHTML = ''; // Clear previous results
           data.forEach(car => {
             const carItem = document.createElement('div');
-            carItem.textContent = `${car.make} ${car.model} (${car.year}) - Available: ${car.available}`;
+            carItem.textContent = `${car.make} ${car.model} (${car.year})`;
+            carItem.onclick = () => showCarDetails(car.id);
             if (sessionStorage.getItem('role') === 'admin') {
               const editButton = document.createElement('button');
               editButton.textContent = 'Edit';
-              editButton.onclick = () => editCar(car);
+              editButton.onclick = (event) => {
+                event.stopPropagation();
+                editCar(car);
+              };
               carItem.appendChild(editButton);
 
               const deleteButton = document.createElement('button');
               deleteButton.textContent = 'Delete';
-              deleteButton.onclick = () => deleteCar(car.id);
+              deleteButton.onclick = (event) => {
+                event.stopPropagation();
+                deleteCar(car.id);
+              };
               carItem.appendChild(deleteButton);
             }
             carList.appendChild(carItem);
@@ -140,16 +230,23 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(response => response.json())
     .then(car => {
       const carItem = document.createElement('div');
-      carItem.textContent = `${car.make} ${car.model} (${car.year}) - Available: ${car.available}`;
+      carItem.textContent = `${car.make} ${car.model} (${car.year})`;
+      carItem.onclick = () => showCarDetails(car.id);
       if (sessionStorage.getItem('role') === 'admin') {
         const editButton = document.createElement('button');
         editButton.textContent = 'Edit';
-        editButton.onclick = () => editCar(car);
+        editButton.onclick = (event) => {
+          event.stopPropagation();
+          editCar(car);
+        };
         carItem.appendChild(editButton);
 
         const deleteButton = document.createElement('button');
         deleteButton.textContent = 'Delete';
-        deleteButton.onclick = () => deleteCar(car.id);
+        deleteButton.onclick = (event) => {
+          event.stopPropagation();
+          deleteCar(car.id);
+        };
         carItem.appendChild(deleteButton);
       }
       carList.appendChild(carItem);

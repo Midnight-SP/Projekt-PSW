@@ -8,15 +8,7 @@
 </head>
 <body>
   <h1>Welcome to the Car Rental Service</h1>
-  <div id="car-list"></div>
-  
-  <form id="login-form">
-    <h2>Login</h2>
-    <input type="text" id="username" placeholder="Username" required autocomplete="username">
-    <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
-    <button type="submit">Login</button>
-  </form>
-  
+
   <form id="search-form">
     <h2>Search Cars</h2>
     <input type="text" id="search-query" placeholder="Search by make or model">
@@ -27,6 +19,18 @@
       <option value="false">Not Available</option>
     </select>
     <button type="submit">Search</button>
+  </form>
+
+  <div id="car-list"></div>
+  <div id="car-details" style="display: none;">
+    <button id="close-details">Close</button>
+  </div>
+  
+  <form id="login-form">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username" required autocomplete="username">
+    <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+    <button type="submit">Login</button>
   </form>
   
   <form id="add-car-form" style="display: none;">
@@ -47,6 +51,8 @@
     <input type="checkbox" id="edit-available"> Available
     <button type="submit">Save Changes</button>
   </form>
+  
+  <button id="logout-button" style="display: none;">Logout</button>
   
   <script src="app.js"></script>
 </body>

@@ -20,7 +20,7 @@ router.post('/login', async (req, res) => {
           username: user.username,
           role: user.role
         };
-        res.json({ message: 'Login successful', role: user.role });
+        res.json({ message: 'Login successful', role: user.role, userId: user.id });
       } else {
         res.status(401).json({ message: 'Invalid credentials' });
       }
@@ -119,6 +119,91 @@ router.get('/search', async (req, res) => {
     res.json(cars);
   } catch (err) {
     console.error('Search error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get user details
+router.get('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get car details
+router.get('/:id', async (req, res) => {
+  try {
+    const car = await Car.findByPk(req.params.id);
+    if (car) {
+      res.json(car);
+    } else {
+      res.status(404).json({ message: 'Car not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Rent a car
+router.post('/rent/:id', async (req, res) => {
+  try {
+    const car = await Car.findByPk(req.params.id);
+    if (car) {
+      if (car.available) {
+        await car.update({ available: false, rentedBy: req.session.user.id });
+        res.json({ message: 'Car rented' });
+      } else {
+        res.status(400).json({ message: 'Car is not available' });
+      }
+    } else {
+      res.status(404).json({ message: 'Car not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Rent a car
+router.post('/rent/:id', async (req, res) => {
+  try {
+    const car = await Car.findByPk(req.params.id);
+    if (car) {
+      if (car.available) {
+        await car.update({ available: false, rentedBy: req.session.user.id, rentedAt: new Date() });
+        res.json({ message: 'Car rented', rentedBy: req.session.user.username, rentedAt: new Date() });
+      } else {
+        res.status(400).json({ message: 'Car is not available' });
+      }
+    } else {
+      res.status(404).json({ message: 'Car not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Return a car
+router.post('/return/:id', async (req, res) => {
+  try {
+    const car = await Car.findByPk(req.params.id);
+    if (car) {
+      if (car.rentedBy === req.session.user.id) {
+        await car.update({ available: true, rentedBy: null, rentedAt: null });
+        res.json({ message: 'Car returned' });
+      } else {
+        res.status(400).json({ message: 'You did not rent this car' });
+      }
+    } else {
+      res.status(404).json({ message: 'Car not found' });
+    }
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });

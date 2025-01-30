@@ -46,7 +46,7 @@ const carRoutes = require('./routes/carRoutes');
 app.use('/api/cars', carRoutes);
 
 // Sync database and start server
-sequelize.sync().then(() => {
+sequelize.sync({ alter: true }).then(() => {
   app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
   });

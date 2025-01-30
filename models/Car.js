@@ -17,6 +17,28 @@ const Car = sequelize.define('Car', {
   available: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  rentedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  rentedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  createdAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  currentUserName: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.User ? this.User.username : null;
+    }
   }
 });
 
