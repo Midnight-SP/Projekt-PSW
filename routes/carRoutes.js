@@ -4,6 +4,7 @@ const Car = require('../models/Car');
 const User = require('../models/User');
 const authorize = require('../middleware/authorize');
 const bcrypt = require('bcrypt');
+const { Sequelize } = require('sequelize');
 
 // LOGIN
 router.post('/login', async (req, res) => {
@@ -93,13 +94,31 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
   }
 });
 
-// SEARCH
+// SEARCH (available for all users)
 router.get('/search', async (req, res) => {
-  const { query } = req.query;
+  const { query, year, available } = req.query;
+  const whereClause = {};
+
+  if (query) {
+    whereClause[Sequelize.Op.or] = [
+      { make: { [Sequelize.Op.like]: `%${query}%` } },
+      { model: { [Sequelize.Op.like]: `%${query}%` } }
+    ];
+  }
+
+  if (year) {
+    whereClause.year = year;
+  }
+
+  if (available !== undefined) {
+    whereClause.available = available === 'true';
+  }
+
   try {
-    const cars = await Car.findAll({ where: { model: { [Sequelize.Op.like]: `%${query}%` } } });
+    const cars = await Car.findAll({ where: whereClause });
     res.json(cars);
   } catch (err) {
+    console.error('Search error:', err);
     res.status(500).json({ message: err.message });
   }
 });
