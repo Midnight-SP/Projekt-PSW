@@ -1,9 +1,9 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const path = require('path');
 const session = require('express-session');
+const sequelize = require('./sequelize');
 
 const app = express();
 const port = 3000;
@@ -30,18 +30,6 @@ app.use(session({
   cookie: { secure: false } // Set to true if using HTTPS
 }));
 
-// MongoDB connection
-mongoose.connect('mongodb://localhost:27017/wypozyczalnia', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-}).catch(error => console.error('MongoDB connection error:', error));
-
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', () => {
-  console.log('Connected to MongoDB');
-});
-
 // Serve static files
 app.use(express.static('public'));
 
@@ -57,6 +45,9 @@ app.get('/favicon.ico', (req, res) => {
 const carRoutes = require('./routes/carRoutes');
 app.use('/api/cars', carRoutes);
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+// Sync database and start server
+sequelize.sync().then(() => {
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+  });
 });

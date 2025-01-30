@@ -1,17 +1,25 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../sequelize');
 const bcrypt = require('bcrypt');
 
-const userSchema = new mongoose.Schema({
-  username: String,
-  password: String,
-  role: { type: String, default: 'user' }, // Dodaj pole roli
-});
-
-userSchema.pre('save', async function (next) {
-  if (this.isModified('password') || this.isNew) {
-    this.password = await bcrypt.hash(this.password, 10);
+const User = sequelize.define('User', {
+  username: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  role: {
+    type: DataTypes.STRING,
+    defaultValue: 'user'
   }
-  next();
 });
 
-module.exports = mongoose.model('User', userSchema);
+User.beforeCreate(async (user) => {
+  user.password = await bcrypt.hash(user.password, 10);
+});
+
+module.exports = User;
