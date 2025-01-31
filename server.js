@@ -5,6 +5,7 @@ const path = require('path');
 const session = require('express-session');
 const sequelize = require('./sequelize');
 const mqtt = require('mqtt');
+const { WebSocketServer } = require('ws');
 
 const app = express();
 const port = 3000;
@@ -19,7 +20,7 @@ app.use(
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "https://unpkg.com"],
-      connectSrc: ["'self'", "wss://broker.hivemq.com:8000", "ws://localhost:1883"],
+      connectSrc: ["'self'", "wss://broker.hivemq.com:8000", "ws://localhost:1883", "ws://localhost:3000"],
       imgSrc: ["'self'", "data:"],
     },
   })
@@ -53,17 +54,61 @@ const mqttClient = mqtt.connect('mqtt://localhost:1883'); // Ensure this matches
 
 mqttClient.on('connect', () => {
   console.log('Connected to MQTT broker');
+  mqttClient.subscribe('cars/#'); // Subscribe to all car-related topics
 });
 
 mqttClient.on('error', (err) => {
   console.error('MQTT connection error:', err);
 });
 
+// WebSocket setup
+const server = app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
+
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws) => {
+  console.log('WebSocket connection established');
+
+  ws.on('message', (message) => {
+    console.log(`Received message: ${message}`);
+  });
+
+  ws.on('close', () => {
+    console.log('WebSocket connection closed');
+  });
+});
+
+mqttClient.on('message', (topic, message) => {
+  const car = JSON.parse(message.toString());
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ topic, car }));
+    }
+  });
+});
+
+// Logging
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' }),
+  ],
+});
+
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.url}`);
+  next();
+});
+
 // Sync database and start server
 sequelize.sync({ alter: true }).then(() => {
-  app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-  });
+  console.log('Database synced');
 });
 
 module.exports = mqttClient;

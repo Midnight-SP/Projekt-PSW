@@ -1,27 +1,34 @@
 document.addEventListener('DOMContentLoaded', () => {
   const carList = document.getElementById('car-list');
   const carDetails = document.getElementById('car-details');
-  const closeDetailsButton = document.getElementById('close-details');
   const registerForm = document.getElementById('register-form');
 
-  // MQTT client setup
-  const mqttClient = mqtt.connect('ws://localhost:1883'); // Ensure this matches your broker's address and port
+  // WebSocket client setup
+  const ws = new WebSocket('ws://localhost:3000');
 
-  mqttClient.on('connect', () => {
-    console.log('Connected to MQTT broker');
-    mqttClient.subscribe('cars/rented');
-    mqttClient.subscribe('cars/returned');
-  });
+  ws.onopen = () => {
+    console.log('Connected to WebSocket server');
+  };
 
-  mqttClient.on('message', (topic, message) => {
-    const car = JSON.parse(message.toString());
-    if (topic === 'cars/rented') {
+  ws.onmessage = (event) => {
+    const { topic, car } = JSON.parse(event.data);
+    if (topic === 'cars/created') {
+      console.log(`Car created: ${car.id}`);
+    } else if (topic === 'cars/updated') {
+      console.log(`Car updated: ${car.id}`);
+    } else if (topic === 'cars/deleted') {
+      console.log(`Car deleted: ${car.id}`);
+    } else if (topic === 'cars/rented') {
       console.log(`Car rented: ${car.id}`);
     } else if (topic === 'cars/returned') {
       console.log(`Car returned: ${car.id}`);
     }
     fetchCars(); // Refresh car list
-  });
+  };
+
+  ws.onclose = () => {
+    console.log('WebSocket connection closed');
+  };
 
   function fetchCars() {
     fetch('/api/cars')
@@ -297,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
         carItem.appendChild(deleteButton);
       }
       carList.appendChild(carItem);
+      fetchCars(); // Refresh car list after adding a new car
     })
     .catch(error => console.error('Error adding car:', error));
   });
