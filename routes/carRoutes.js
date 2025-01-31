@@ -5,6 +5,7 @@ const User = require('../models/User');
 const authorize = require('../middleware/authorize');
 const bcrypt = require('bcrypt');
 const { Sequelize } = require('sequelize');
+const mqttClient = require('../server');
 
 // LOGIN
 router.post('/login', async (req, res) => {
@@ -33,14 +34,19 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Check users
-router.get('/check-users', async (req, res) => {
+// REGISTER
+router.post('/register', async (req, res) => {
+  const { username, password, role } = req.body;
   try {
-    const users = await User.findAll();
-    res.json(users);
+    const existingUser = await User.findOne({ where: { username } });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Username already taken' });
+    }
+    const user = await User.create({ username, password, role });
+    res.status(201).json({ message: 'User registered successfully', userId: user.id });
   } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ message: err.message });
+    console.error('Registration error:', err);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
@@ -48,6 +54,7 @@ router.get('/check-users', async (req, res) => {
 router.post('/', authorize('admin'), async (req, res) => {
   try {
     const car = await Car.create(req.body);
+    mqttClient.publish('cars/created', JSON.stringify(car));
     res.status(201).json(car);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -70,6 +77,7 @@ router.put('/:id', authorize('admin'), async (req, res) => {
     const car = await Car.findByPk(req.params.id);
     if (car) {
       await car.update(req.body);
+      mqttClient.publish('cars/updated', JSON.stringify(car));
       res.json(car);
     } else {
       res.status(404).json({ message: 'Car not found' });
@@ -85,6 +93,7 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
     const car = await Car.findByPk(req.params.id);
     if (car) {
       await car.destroy();
+      mqttClient.publish('cars/deleted', JSON.stringify(car));
       res.json({ message: 'Car deleted' });
     } else {
       res.status(404).json({ message: 'Car not found' });
@@ -157,26 +166,8 @@ router.post('/rent/:id', async (req, res) => {
     const car = await Car.findByPk(req.params.id);
     if (car) {
       if (car.available) {
-        await car.update({ available: false, rentedBy: req.session.user.id });
-        res.json({ message: 'Car rented' });
-      } else {
-        res.status(400).json({ message: 'Car is not available' });
-      }
-    } else {
-      res.status(404).json({ message: 'Car not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Rent a car
-router.post('/rent/:id', async (req, res) => {
-  try {
-    const car = await Car.findByPk(req.params.id);
-    if (car) {
-      if (car.available) {
         await car.update({ available: false, rentedBy: req.session.user.id, rentedAt: new Date() });
+        mqttClient.publish('cars/rented', JSON.stringify(car));
         res.json({ message: 'Car rented', rentedBy: req.session.user.username, rentedAt: new Date() });
       } else {
         res.status(400).json({ message: 'Car is not available' });
@@ -196,6 +187,7 @@ router.post('/return/:id', async (req, res) => {
     if (car) {
       if (car.rentedBy === req.session.user.id) {
         await car.update({ available: true, rentedBy: null, rentedAt: null });
+        mqttClient.publish('cars/returned', JSON.stringify(car));
         res.json({ message: 'Car returned' });
       } else {
         res.status(400).json({ message: 'You did not rent this car' });
@@ -204,41 +196,6 @@ router.post('/return/:id', async (req, res) => {
       res.status(404).json({ message: 'Car not found' });
     }
   } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Initialize sample data (only for admin)
-router.post('/init', authorize('admin'), async (req, res) => {
-  const sampleCars = [
-    { make: 'Toyota', model: 'Corolla', year: 2020, available: true },
-    { make: 'Honda', model: 'Civic', year: 2019, available: true },
-    { make: 'Ford', model: 'Mustang', year: 2018, available: false },
-  ];
-  try {
-    await Car.bulkCreate(sampleCars);
-    res.status(201).json({ message: 'Sample data initialized' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Initialize test users
-router.post('/init-users', async (req, res) => {
-  const users = [
-    { username: 'admin', password: 'admin123', role: 'admin' },
-    { username: 'user', password: 'user123', role: 'user' }
-  ];
-
-  try {
-    for (const userData of users) {
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
-      const user = await User.create({ ...userData, password: hashedPassword });
-      console.log(`User created: ${user.username}`);
-    }
-    res.status(201).json({ message: 'Test users initialized' });
-  } catch (err) {
-    console.error('Error initializing users:', err);
     res.status(500).json({ message: err.message });
   }
 });

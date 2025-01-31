@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const path = require('path');
 const session = require('express-session');
 const sequelize = require('./sequelize');
+const mqtt = require('mqtt');
 
 const app = express();
 const port = 3000;
@@ -17,6 +18,8 @@ app.use(
   helmet.contentSecurityPolicy({
     directives: {
       defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://unpkg.com"],
+      connectSrc: ["'self'", "wss://broker.hivemq.com:8000", "ws://localhost:1883"],
       imgSrc: ["'self'", "data:"],
     },
   })
@@ -45,9 +48,22 @@ app.get('/favicon.ico', (req, res) => {
 const carRoutes = require('./routes/carRoutes');
 app.use('/api/cars', carRoutes);
 
+// MQTT setup
+const mqttClient = mqtt.connect('mqtt://localhost:1883'); // Ensure this matches your broker's address and port
+
+mqttClient.on('connect', () => {
+  console.log('Connected to MQTT broker');
+});
+
+mqttClient.on('error', (err) => {
+  console.error('MQTT connection error:', err);
+});
+
 // Sync database and start server
 sequelize.sync({ alter: true }).then(() => {
   app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
   });
 });
+
+module.exports = mqttClient;

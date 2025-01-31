@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Car Rental Service</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
   <h1>Welcome to the Car Rental Service</h1>
@@ -31,6 +32,17 @@
     <input type="text" id="username" placeholder="Username" required autocomplete="username">
     <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
     <button type="submit">Login</button>
+  </form>
+
+  <form id="register-form">
+    <h2>Register</h2>
+    <input type="text" id="register-username" placeholder="Username" required autocomplete="username">
+    <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
+    <select id="register-role">
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
+    </select>
+    <button type="submit">Register</button>
   </form>
   
   <form id="add-car-form" style="display: none;">

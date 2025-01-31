@@ -2,6 +2,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const carList = document.getElementById('car-list');
   const carDetails = document.getElementById('car-details');
   const closeDetailsButton = document.getElementById('close-details');
+  const registerForm = document.getElementById('register-form');
+
+  // MQTT client setup
+  const mqttClient = mqtt.connect('ws://localhost:1883'); // Ensure this matches your broker's address and port
+
+  mqttClient.on('connect', () => {
+    console.log('Connected to MQTT broker');
+    mqttClient.subscribe('cars/rented');
+    mqttClient.subscribe('cars/returned');
+  });
+
+  mqttClient.on('message', (topic, message) => {
+    const car = JSON.parse(message.toString());
+    if (topic === 'cars/rented') {
+      console.log(`Car rented: ${car.id}`);
+    } else if (topic === 'cars/returned') {
+      console.log(`Car returned: ${car.id}`);
+    }
+    fetchCars(); // Refresh car list
+  });
 
   function fetchCars() {
     fetch('/api/cars')
@@ -146,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('add-car-form').style.display = 'block';
         }
         carDetails.style.display = 'none'; // Close car details
+        registerForm.style.display = 'none'; // Hide register form
         fetchCars();
       } else {
         alert('Login failed');
@@ -162,7 +183,33 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('add-car-form').style.display = 'none';
     document.getElementById('logout-button').style.display = 'none';
     carDetails.style.display = 'none'; // Close car details
+    registerForm.style.display = 'block'; // Show register form
     fetchCars();
+  });
+
+  registerForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const username = document.getElementById('register-username').value;
+    const password = document.getElementById('register-password').value;
+    const role = document.getElementById('register-role').value;
+
+    fetch('/api/cars/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password, role }),
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.message === 'User registered successfully') {
+        alert('User registered successfully');
+        document.getElementById('register-form').reset();
+      } else {
+        alert(data.message);
+      }
+    })
+    .catch(error => console.error('Error registering user:', error));
   });
 
   const searchForm = document.getElementById('search-form');
@@ -277,4 +324,9 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(error => console.error('Error editing car:', error));
   });
+
+  // Hide register form if user is logged in
+  if (sessionStorage.getItem('userId')) {
+    registerForm.style.display = 'none';
+  }
 });
