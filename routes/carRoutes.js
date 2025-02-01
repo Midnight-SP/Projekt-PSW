@@ -63,8 +63,9 @@ router.post('/', authorize('admin'), async (req, res) => {
 
 // READ
 router.get('/', async (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 10;
   try {
-    const cars = await Car.findAll();
+    const cars = await Car.findAll({ limit });
     res.json(cars);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -105,7 +106,7 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
 
 // SEARCH (available for all users)
 router.get('/search', async (req, res) => {
-  const { query, year, available } = req.query;
+  const { query, year, available, limit } = req.query;
   const whereClause = {};
 
   if (query) {
@@ -124,7 +125,7 @@ router.get('/search', async (req, res) => {
   }
 
   try {
-    const cars = await Car.findAll({ where: whereClause });
+    const cars = await Car.findAll({ where: whereClause, limit: parseInt(limit, 10) || 10 });
     res.json(cars);
   } catch (err) {
     console.error('Search error:', err);
@@ -136,6 +137,37 @@ router.get('/search', async (req, res) => {
 router.get('/users/:id', async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get all users (only for admin)
+router.get('/users', authorize('admin'), async (req, res) => {
+  try {
+    const users = await User.findAll();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get user details with rented cars (only for admin)
+router.get('/users/:id', authorize('admin'), async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      include: {
+        model: Car,
+        as: 'rentedCars',
+        where: { rentedBy: req.params.id },
+        required: false
+      }
+    });
     if (user) {
       res.json(user);
     } else {
@@ -176,6 +208,7 @@ router.post('/rent/:id', async (req, res) => {
       res.status(404).json({ message: 'Car not found' });
     }
   } catch (err) {
+    console.error('Rent car error:', err);
     res.status(500).json({ message: err.message });
   }
 });

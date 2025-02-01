@@ -26,6 +26,16 @@ const Car = sequelize.define('Car', {
     type: DataTypes.DATE,
     allowNull: true
   },
+  seats: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 4 // Dodaj wartość domyślną
+  },
+  bodyType: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'sedan' // Dodaj wartość domyślną
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const path = require('path');
 const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const sequelize = require('./sequelize');
 const mqtt = require('mqtt');
 const { WebSocketServer } = require('ws');
@@ -13,6 +14,7 @@ const port = 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(helmet());
+app.use(cookieParser());
 
 // Custom CSP configuration
 app.use(
