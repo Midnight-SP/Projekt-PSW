@@ -2,6 +2,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const carList = document.getElementById('car-list');
   const carDetails = document.getElementById('car-details');
   const registerForm = document.getElementById('register-form');
+  const loginPanel = document.getElementById('login-panel');
+  const vehiclesPanel = document.getElementById('vehicles-panel');
+  const adminPanel = document.getElementById('admin-panel');
+  const logoutButton = document.getElementById('logout-button');
 
   // WebSocket client setup
   const ws = new WebSocket('ws://localhost:3000');
@@ -18,10 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`Car updated: ${car.id}`);
     } else if (topic === 'cars/deleted') {
       console.log(`Car deleted: ${car.id}`);
-    } else if (topic === 'cars/rented') {
-      console.log(`Car rented: ${car.id}`);
-    } else if (topic === 'cars/returned') {
-      console.log(`Car returned: ${car.id}`);
     }
     fetchCars(); // Refresh car list
   };
@@ -38,25 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
           carList.innerHTML = ''; // Clear previous results
           data.forEach(car => {
             const carItem = document.createElement('div');
-            carItem.textContent = `${car.make} ${car.model} (${car.year})`;
-            carItem.onclick = () => showCarDetails(car.id);
-            if (sessionStorage.getItem('role') === 'admin') {
-              const editButton = document.createElement('button');
-              editButton.textContent = 'Edit';
-              editButton.onclick = (event) => {
-                event.stopPropagation();
-                editCar(car);
-              };
-              carItem.appendChild(editButton);
-
-              const deleteButton = document.createElement('button');
-              deleteButton.textContent = 'Delete';
-              deleteButton.onclick = (event) => {
-                event.stopPropagation();
-                deleteCar(car.id);
-              };
-              carItem.appendChild(deleteButton);
-            }
+            carItem.classList.add('car-item');
+            carItem.innerHTML = `
+              <span>${car.make} ${car.model} (${car.year})</span>
+              <button class="edit-car" data-id="${car.id}">Edit</button>
+              <button class="delete-car" data-id="${car.id}">Delete</button>
+            `;
+            carItem.querySelector('.edit-car').onclick = () => editCar(car);
+            carItem.querySelector('.delete-car').onclick = () => deleteCar(car.id);
+            carItem.onclick = () => showCarDetails(car.id); // Add this line to call showCarDetails
             carList.appendChild(carItem);
           });
         } else {
@@ -83,12 +73,12 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .catch(error => console.error('Error fetching car details:', error));
   }
-
+  
   function displayCarDetails(car, user) {
     const userId = sessionStorage.getItem('userId');
     const rentButton = userId && car.available ? `<button id="rent-button">Rent</button>` : '';
     const returnButton = userId && car.rentedBy === parseInt(userId) ? `<button id="return-button">Return</button>` : '';
-
+  
     carDetails.innerHTML = `
       <button id="close-details">Close</button>
       <h2>${car.make} ${car.model} (${car.year})</h2>
@@ -100,14 +90,14 @@ document.addEventListener('DOMContentLoaded', () => {
       ${rentButton}
       ${returnButton}
     `;
-
+  
     if (userId && car.available) {
       document.getElementById('rent-button').onclick = () => toggleRentCar(car);
     }
     if (userId && car.rentedBy === parseInt(userId)) {
       document.getElementById('return-button').onclick = () => toggleRentCar(car);
     }
-
+  
     document.getElementById('close-details').onclick = () => {
       carDetails.style.display = 'none';
     };
@@ -165,15 +155,14 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(data => {
       if (data.message === 'Login successful') {
         alert('Login successful');
-        document.getElementById('login-form').style.display = 'none';
         sessionStorage.setItem('role', data.role);
         sessionStorage.setItem('userId', data.userId);
-        document.getElementById('logout-button').style.display = 'block';
+        loginPanel.style.display = 'none';
+        vehiclesPanel.style.display = 'block';
+        logoutButton.style.display = 'block';
         if (data.role === 'admin') {
-          document.getElementById('add-car-form').style.display = 'block';
+          adminPanel.style.display = 'block';
         }
-        carDetails.style.display = 'none'; // Close car details
-        registerForm.style.display = 'none'; // Hide register form
         fetchCars();
       } else {
         alert('Login failed');
@@ -182,15 +171,13 @@ document.addEventListener('DOMContentLoaded', () => {
     .catch(error => console.error('Error logging in:', error));
   });
 
-  const logoutButton = document.getElementById('logout-button');
   logoutButton.addEventListener('click', () => {
     sessionStorage.removeItem('role');
     sessionStorage.removeItem('userId');
-    document.getElementById('login-form').style.display = 'block';
-    document.getElementById('add-car-form').style.display = 'none';
-    document.getElementById('logout-button').style.display = 'none';
-    carDetails.style.display = 'none'; // Close car details
-    registerForm.style.display = 'block'; // Show register form
+    loginPanel.style.display = 'block';
+    vehiclesPanel.style.display = 'block';
+    adminPanel.style.display = 'none';
+    logoutButton.style.display = 'none';
     fetchCars();
   });
 
@@ -238,25 +225,14 @@ document.addEventListener('DOMContentLoaded', () => {
           carList.innerHTML = ''; // Clear previous results
           data.forEach(car => {
             const carItem = document.createElement('div');
-            carItem.textContent = `${car.make} ${car.model} (${car.year})`;
-            carItem.onclick = () => showCarDetails(car.id);
-            if (sessionStorage.getItem('role') === 'admin') {
-              const editButton = document.createElement('button');
-              editButton.textContent = 'Edit';
-              editButton.onclick = (event) => {
-                event.stopPropagation();
-                editCar(car);
-              };
-              carItem.appendChild(editButton);
-
-              const deleteButton = document.createElement('button');
-              deleteButton.textContent = 'Delete';
-              deleteButton.onclick = (event) => {
-                event.stopPropagation();
-                deleteCar(car.id);
-              };
-              carItem.appendChild(deleteButton);
-            }
+            carItem.classList.add('car-item');
+            carItem.innerHTML = `
+              <span>${car.make} ${car.model} (${car.year})</span>
+              <button class="edit-car" data-id="${car.id}">Edit</button>
+              <button class="delete-car" data-id="${car.id}">Delete</button>
+            `;
+            carItem.querySelector('.edit-car').onclick = () => editCar(car);
+            carItem.querySelector('.delete-car').onclick = () => deleteCar(car.id);
             carList.appendChild(carItem);
           });
         } else {
@@ -284,25 +260,14 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(response => response.json())
     .then(car => {
       const carItem = document.createElement('div');
-      carItem.textContent = `${car.make} ${car.model} (${car.year})`;
-      carItem.onclick = () => showCarDetails(car.id);
-      if (sessionStorage.getItem('role') === 'admin') {
-        const editButton = document.createElement('button');
-        editButton.textContent = 'Edit';
-        editButton.onclick = (event) => {
-          event.stopPropagation();
-          editCar(car);
-        };
-        carItem.appendChild(editButton);
-
-        const deleteButton = document.createElement('button');
-        deleteButton.textContent = 'Delete';
-        deleteButton.onclick = (event) => {
-          event.stopPropagation();
-          deleteCar(car.id);
-        };
-        carItem.appendChild(deleteButton);
-      }
+      carItem.classList.add('car-item');
+      carItem.innerHTML = `
+        <span>${car.make} ${car.model} (${car.year})</span>
+        <button class="edit-car" data-id="${car.id}">Edit</button>
+        <button class="delete-car" data-id="${car.id}">Delete</button>
+      `;
+      carItem.querySelector('.edit-car').onclick = () => editCar(car);
+      carItem.querySelector('.delete-car').onclick = () => deleteCar(car.id);
       carList.appendChild(carItem);
       fetchCars(); // Refresh car list after adding a new car
     })
@@ -335,6 +300,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Hide register form if user is logged in
   if (sessionStorage.getItem('userId')) {
-    registerForm.style.display = 'none';
+    loginPanel.style.display = 'none';
+    vehiclesPanel.style.display = 'block';
+    logoutButton.style.display = 'block';
+    if (sessionStorage.getItem('role') === 'admin') {
+      adminPanel.style.display = 'block';
+    }
+  } else {
+    loginPanel.style.display = 'block';
+    vehiclesPanel.style.display = 'block';
+    adminPanel.style.display = 'none';
+    logoutButton.style.display = 'none';
   }
 });

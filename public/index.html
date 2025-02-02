@@ -10,62 +10,68 @@
 <body>
   <h1>Welcome to the Car Rental Service</h1>
 
-  <form id="search-form">
-    <h2>Search Cars</h2>
-    <input type="text" id="search-query" placeholder="Search by make or model">
-    <input type="number" id="search-year" placeholder="Year">
-    <select id="search-available">
-      <option value="">Any</option>
-      <option value="true">Available</option>
-      <option value="false">Not Available</option>
-    </select>
-    <button type="submit">Search</button>
-  </form>
+  <div id="panels">
+    <div id="login-panel" class="panel">
+      <form id="login-form">
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Username" required autocomplete="username">
+        <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+        <button type="submit">Login</button>
+      </form>
+      <form id="register-form">
+        <h2>Register</h2>
+        <input type="text" id="register-username" placeholder="Username" required autocomplete="username">
+        <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
+        <select id="register-role">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button type="submit">Register</button>
+      </form>
+    </div>
 
-  <div id="car-list"></div>
-  <div id="car-details" style="display: none;">
-    <button id="close-details">Close</button>
+    <div id="admin-panel" class="panel" style="display: none;">
+      <form id="add-car-form">
+        <h2>Add Car</h2>
+        <input type="text" id="make" placeholder="Make" required>
+        <input type="text" id="model" placeholder="Model" required>
+        <input type="number" id="year" placeholder="Year" required>
+        <input type="checkbox" id="available"> Available
+        <button type="submit">Add Car</button>
+      </form>
+      <form id="edit-car-form" style="display: none;">
+        <h2>Edit Car</h2>
+        <input type="hidden" id="edit-id">
+        <input type="text" id="edit-make" placeholder="Make" required>
+        <input type="text" id="edit-model" placeholder="Model" required>
+        <input type="number" id="edit-year" placeholder="Year" required>
+        <input type="checkbox" id="edit-available"> Available
+        <button type="submit">Save Changes</button>
+      </form>
+    </div>
+
+    <div id="vehicles-panel" class="panel">
+      <form id="search-form">
+        <h2>Search Cars</h2>
+        <input type="text" id="search-query" placeholder="Search by make or model">
+        <input type="number" id="search-year" placeholder="Year">
+        <select id="search-available">
+          <option value="">Any</option>
+          <option value="true">Available</option>
+          <option value="false">Not Available</option>
+        </select>
+        <button type="submit">Search</button>
+      </form>
+      <div id="car-list"></div>
+    </div>
+
+    <div id="car-details" class="panel">
+      <button id="close-details">Close</button>
+    </div>
   </div>
-  
-  <form id="login-form">
-    <h2>Login</h2>
-    <input type="text" id="username" placeholder="Username" required autocomplete="username">
-    <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
-    <button type="submit">Login</button>
-  </form>
 
-  <form id="register-form">
-    <h2>Register</h2>
-    <input type="text" id="register-username" placeholder="Username" required autocomplete="username">
-    <input type="password" id="register-password" placeholder="Password" required autocomplete="new-password">
-    <select id="register-role">
-      <option value="user">User</option>
-      <option value="admin">Admin</option>
-    </select>
-    <button type="submit">Register</button>
-  </form>
-  
-  <form id="add-car-form" style="display: none;">
-    <h2>Add Car</h2>
-    <input type="text" id="make" placeholder="Make" required>
-    <input type="text" id="model" placeholder="Model" required>
-    <input type="number" id="year" placeholder="Year" required>
-    <input type="checkbox" id="available"> Available
-    <button type="submit">Add Car</button>
-  </form>
-
-  <form id="edit-car-form" style="display: none;">
-    <h2>Edit Car</h2>
-    <input type="hidden" id="edit-id">
-    <input type="text" id="edit-make" placeholder="Make" required>
-    <input type="text" id="edit-model" placeholder="Model" required>
-    <input type="number" id="edit-year" placeholder="Year" required>
-    <input type="checkbox" id="edit-available"> Available
-    <button type="submit">Save Changes</button>
-  </form>
-  
   <button id="logout-button" style="display: none;">Logout</button>
-  
+
   <script src="app.js"></script>
 </body>
 </html>
