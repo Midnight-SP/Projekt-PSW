@@ -66,34 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(error => console.error('Error fetching car data:', error));
   }
 
-  function fetchUsers() {
-    fetch('/api/cars/users')
-      .then(response => response.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          userList.innerHTML = ''; // Clear previous results
-          data.forEach(user => {
-            const userItem = document.createElement('div');
-            userItem.classList.add('user-item');
-            userItem.innerHTML = `
-              <span>${user.username} (${user.role})</span>
-            `;
-            userItem.onclick = () => showUserDetails(user.id);
-            userList.appendChild(userItem);
-          });
-        } else {
-          console.error('Fetched data is not an array:', data);
-        }
-      })
-      .catch(error => console.error('Error fetching user data:', error));
-  }
-
   function showCarDetails(carId) {
     fetch(`/api/cars/${carId}`)
       .then(response => response.json())
       .then(car => {
-        if (car.rentedBy) {
-          fetch(`/api/cars/users/${car.rentedBy}`)
+        const userRole = sessionStorage.getItem('role');
+        if (userRole === 'admin' && car.rentedBy) {
+          fetch(`/api/users/${car.rentedBy}`)
             .then(response => response.json())
             .then(user => {
               displayCarDetails(car, user);
@@ -104,15 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       })
       .catch(error => console.error('Error fetching car details:', error));
-  }
-
-  function showUserDetails(userId) {
-    fetch(`/api/cars/users/${userId}`)
-      .then(response => response.json())
-      .then(user => {
-        displayUserDetails(user);
-      })
-      .catch(error => console.error('Error fetching user details:', error));
   }
 
   function displayCarDetails(car, user) {
@@ -145,6 +115,71 @@ document.addEventListener('DOMContentLoaded', () => {
       detailsPanel.style.display = 'none';
     };
     detailsPanel.style.display = 'block';
+  }
+
+  function fetchUsers() {
+    fetch('/api/users')
+      .then(response => response.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          userList.innerHTML = ''; // Clear previous results
+          data.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.classList.add('user-item');
+            userItem.innerHTML = `
+              <span>${user.username} (${user.role})</span>
+            `;
+            userItem.onclick = () => showUserDetails(user.id);
+            userList.appendChild(userItem);
+          });
+        } else {
+          console.error('Fetched data is not an array:', data);
+          userList.innerHTML = '<p>User not found</p>';
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching user data:', error);
+        userList.innerHTML = '<p>User not found</p>';
+      });
+  }
+
+  function showUserDetails(userId) {
+    fetch(`/api/users/${userId}`)
+      .then(response => response.json())
+      .then(user => {
+        displayUserDetails(user);
+      })
+      .catch(error => {
+        console.error('Error fetching user details:', error);
+        detailsPanel.innerHTML = '<p>User not found</p>';
+      });
+  }
+
+  function editUserRole(userId, role) {
+    fetch(`/api/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role }),
+    })
+      .then(response => response.json())
+      .then(() => {
+        fetchUsers();
+      })
+      .catch(error => console.error('Error editing user role:', error));
+  }
+
+  function deleteUser(id) {
+    fetch(`/api/users/${id}`, {
+      method: 'DELETE',
+    })
+      .then(response => response.json())
+      .then(() => {
+        fetchUsers();
+        detailsPanel.style.display = 'none';
+      })
+      .catch(error => console.error('Error deleting user:', error));
   }
 
   function displayUserDetails(user) {
@@ -198,34 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .catch(error => console.error('Error deleting car:', error));
   }
 
-  function editUserRole(userId, role) {
-    fetch(`/api/cars/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ role }),
-    })
-    .then(response => response.json())
-    .then(() => {
-      fetchUsers();
-      // Do not close the details panel after editing user role
-    })
-    .catch(error => console.error('Error editing user role:', error));
-  }
-
-  function deleteUser(id) {
-    fetch(`/api/cars/users/${id}`, {
-      method: 'DELETE',
-    })
-    .then(response => response.json())
-    .then(() => {
-      fetchUsers();
-      detailsPanel.style.display = 'none';
-    })
-    .catch(error => console.error('Error deleting user:', error));
-  }
-
   function toggleRentCar(car) {
     const url = car.available ? `/api/cars/rent/${car.id}` : `/api/cars/return/${car.id}`;
     fetch(url, {
@@ -246,14 +253,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
-    fetch('/api/cars/login', {
+    fetch('/api/users/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ username, password }),
     })
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
       if (data.message === 'Login successful') {
         alert('Login successful');
@@ -291,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = document.getElementById('register-password').value;
     const role = document.getElementById('register-role').value;
 
-    fetch('/api/cars/register', {
+    fetch('/api/users/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

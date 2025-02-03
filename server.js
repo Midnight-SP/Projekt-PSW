@@ -47,7 +47,9 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 const carRoutes = require('./routes/carRoutes');
+const userRoutes = require('./routes/userRoutes');
 app.use('/api/cars', carRoutes);
+app.use('/api/users', userRoutes);
 
 // MQTT setup
 const mqttClient = mqtt.connect('mqtt://localhost:1883'); // Ensure this matches your broker's address and port
