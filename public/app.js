@@ -1,11 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
   const carList = document.getElementById('car-list');
-  const carDetails = document.getElementById('car-details');
+  const detailsPanel = document.getElementById('details-panel');
   const registerForm = document.getElementById('register-form');
   const loginPanel = document.getElementById('login-panel');
   const vehiclesPanel = document.getElementById('vehicles-panel');
   const adminPanel = document.getElementById('admin-panel');
   const logoutButton = document.getElementById('logout-button');
+  const userList = document.getElementById('user-list');
 
   // WebSocket client setup
   const ws = new WebSocket('ws://localhost:3000');
@@ -36,16 +37,25 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data => {
         if (Array.isArray(data)) {
           carList.innerHTML = ''; // Clear previous results
+          const userRole = sessionStorage.getItem('role');
           data.forEach(car => {
             const carItem = document.createElement('div');
             carItem.classList.add('car-item');
             carItem.innerHTML = `
               <span>${car.make} ${car.model} (${car.year})</span>
-              <button class="edit-car" data-id="${car.id}">Edit</button>
-              <button class="delete-car" data-id="${car.id}">Delete</button>
+              ${userRole === 'admin' ? `<button class="edit-car" data-id="${car.id}">Edit</button>` : ''}
+              ${userRole === 'admin' ? `<button class="delete-car" data-id="${car.id}">Delete</button>` : ''}
             `;
-            carItem.querySelector('.edit-car').onclick = () => editCar(car);
-            carItem.querySelector('.delete-car').onclick = () => deleteCar(car.id);
+            if (userRole === 'admin') {
+              carItem.querySelector('.edit-car').onclick = (event) => {
+                event.stopPropagation();
+                editCar(car);
+              };
+              carItem.querySelector('.delete-car').onclick = (event) => {
+                event.stopPropagation();
+                deleteCar(car.id);
+              };
+            }
             carItem.onclick = () => showCarDetails(car.id); // Add this line to call showCarDetails
             carList.appendChild(carItem);
           });
@@ -54,6 +64,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       })
       .catch(error => console.error('Error fetching car data:', error));
+  }
+
+  function fetchUsers() {
+    fetch('/api/cars/users')
+      .then(response => response.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          userList.innerHTML = ''; // Clear previous results
+          data.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.classList.add('user-item');
+            userItem.innerHTML = `
+              <span>${user.username} (${user.role})</span>
+            `;
+            userItem.onclick = () => showUserDetails(user.id);
+            userList.appendChild(userItem);
+          });
+        } else {
+          console.error('Fetched data is not an array:', data);
+        }
+      })
+      .catch(error => console.error('Error fetching user data:', error));
   }
 
   function showCarDetails(carId) {
@@ -73,35 +105,77 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .catch(error => console.error('Error fetching car details:', error));
   }
-  
+
+  function showUserDetails(userId) {
+    fetch(`/api/cars/users/${userId}`)
+      .then(response => response.json())
+      .then(user => {
+        displayUserDetails(user);
+      })
+      .catch(error => console.error('Error fetching user details:', error));
+  }
+
   function displayCarDetails(car, user) {
     const userId = sessionStorage.getItem('userId');
+    const userRole = sessionStorage.getItem('role');
     const rentButton = userId && car.available ? `<button id="rent-button">Rent</button>` : '';
     const returnButton = userId && car.rentedBy === parseInt(userId) ? `<button id="return-button">Return</button>` : '';
-  
-    carDetails.innerHTML = `
+    const rentedByInfo = userRole === 'admin' ? `<p>Rented By: ${user ? user.username : 'N/A'}</p>` : '';
+
+    detailsPanel.innerHTML = `
       <button id="close-details">Close</button>
       <h2>${car.make} ${car.model} (${car.year})</h2>
       <p>Available: ${car.available}</p>
-      <p>Rented By: ${user ? user.username : 'N/A'}</p>
+      ${rentedByInfo}
       <p>Rented At: ${car.rentedAt ? new Date(car.rentedAt).toLocaleString() : 'N/A'}</p>
       <p>Added At: ${new Date(car.createdAt).toLocaleString()}</p>
       <p>Updated At: ${new Date(car.updatedAt).toLocaleString()}</p>
       ${rentButton}
       ${returnButton}
     `;
-  
+
     if (userId && car.available) {
       document.getElementById('rent-button').onclick = () => toggleRentCar(car);
     }
     if (userId && car.rentedBy === parseInt(userId)) {
       document.getElementById('return-button').onclick = () => toggleRentCar(car);
     }
-  
+
     document.getElementById('close-details').onclick = () => {
-      carDetails.style.display = 'none';
+      detailsPanel.style.display = 'none';
     };
-    carDetails.style.display = 'block';
+    detailsPanel.style.display = 'block';
+  }
+
+  function displayUserDetails(user) {
+    detailsPanel.innerHTML = `
+      <button id="close-details">Close</button>
+      <h2>${user.username}</h2>
+      <p>Role: ${user.role}</p>
+      <form id="edit-user-form">
+        <select id="edit-user-role">
+          <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+          <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+        </select>
+        <button type="submit">Save Changes</button>
+      </form>
+      <button id="delete-user">Delete User</button>
+    `;
+
+    document.getElementById('edit-user-form').onsubmit = (event) => {
+      event.preventDefault();
+      const role = document.getElementById('edit-user-role').value;
+      editUserRole(user.id, role);
+    };
+
+    document.getElementById('delete-user').onclick = () => {
+      deleteUser(user.id);
+    };
+
+    document.getElementById('close-details').onclick = () => {
+      detailsPanel.style.display = 'none';
+    };
+    detailsPanel.style.display = 'block';
   }
 
   function editCar(car) {
@@ -122,6 +196,34 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchCars();
     })
     .catch(error => console.error('Error deleting car:', error));
+  }
+
+  function editUserRole(userId, role) {
+    fetch(`/api/cars/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role }),
+    })
+    .then(response => response.json())
+    .then(() => {
+      fetchUsers();
+      // Do not close the details panel after editing user role
+    })
+    .catch(error => console.error('Error editing user role:', error));
+  }
+
+  function deleteUser(id) {
+    fetch(`/api/cars/users/${id}`, {
+      method: 'DELETE',
+    })
+    .then(response => response.json())
+    .then(() => {
+      fetchUsers();
+      detailsPanel.style.display = 'none';
+    })
+    .catch(error => console.error('Error deleting user:', error));
   }
 
   function toggleRentCar(car) {
@@ -162,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutButton.style.display = 'block';
         if (data.role === 'admin') {
           adminPanel.style.display = 'block';
+          fetchUsers(); // Fetch users when admin logs in
         }
         fetchCars();
       } else {
@@ -178,6 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     vehiclesPanel.style.display = 'block';
     adminPanel.style.display = 'none';
     logoutButton.style.display = 'none';
+    detailsPanel.style.display = 'none'; // Close the details panel on logout
     fetchCars();
   });
 
@@ -228,11 +332,20 @@ document.addEventListener('DOMContentLoaded', () => {
             carItem.classList.add('car-item');
             carItem.innerHTML = `
               <span>${car.make} ${car.model} (${car.year})</span>
-              <button class="edit-car" data-id="${car.id}">Edit</button>
-              <button class="delete-car" data-id="${car.id}">Delete</button>
+              ${sessionStorage.getItem('role') === 'admin' ? `<button class="edit-car" data-id="${car.id}">Edit</button>` : ''}
+              ${sessionStorage.getItem('role') === 'admin' ? `<button class="delete-car" data-id="${car.id}">Delete</button>` : ''}
             `;
-            carItem.querySelector('.edit-car').onclick = () => editCar(car);
-            carItem.querySelector('.delete-car').onclick = () => deleteCar(car.id);
+            if (sessionStorage.getItem('role') === 'admin') {
+              carItem.querySelector('.edit-car').onclick = (event) => {
+                event.stopPropagation();
+                editCar(car);
+              };
+              carItem.querySelector('.delete-car').onclick = (event) => {
+                event.stopPropagation();
+                deleteCar(car.id);
+              };
+            }
+            carItem.onclick = () => showCarDetails(car.id); // Add this line to call showCarDetails
             carList.appendChild(carItem);
           });
         } else {
@@ -263,39 +376,23 @@ document.addEventListener('DOMContentLoaded', () => {
       carItem.classList.add('car-item');
       carItem.innerHTML = `
         <span>${car.make} ${car.model} (${car.year})</span>
-        <button class="edit-car" data-id="${car.id}">Edit</button>
-        <button class="delete-car" data-id="${car.id}">Delete</button>
+        ${sessionStorage.getItem('role') === 'admin' ? `<button class="edit-car" data-id="${car.id}">Edit</button>` : ''}
+        ${sessionStorage.getItem('role') === 'admin' ? `<button class="delete-car" data-id="${car.id}">Delete</button>` : ''}
       `;
-      carItem.querySelector('.edit-car').onclick = () => editCar(car);
-      carItem.querySelector('.delete-car').onclick = () => deleteCar(car.id);
+      if (sessionStorage.getItem('role') === 'admin') {
+        carItem.querySelector('.edit-car').onclick = (event) => {
+          event.stopPropagation();
+          editCar(car);
+        };
+        carItem.querySelector('.delete-car').onclick = (event) => {
+          event.stopPropagation();
+          deleteCar(car.id);
+        };
+      }
       carList.appendChild(carItem);
       fetchCars(); // Refresh car list after adding a new car
     })
     .catch(error => console.error('Error adding car:', error));
-  });
-
-  const editCarForm = document.getElementById('edit-car-form');
-  editCarForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const id = document.getElementById('edit-id').value;
-    const make = document.getElementById('edit-make').value;
-    const model = document.getElementById('edit-model').value;
-    const year = document.getElementById('edit-year').value;
-    const available = document.getElementById('edit-available').checked;
-
-    fetch(`/api/cars/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ make, model, year, available }),
-    })
-    .then(response => response.json())
-    .then(() => {
-      document.getElementById('edit-car-form').style.display = 'none';
-      fetchCars();
-    })
-    .catch(error => console.error('Error editing car:', error));
   });
 
   // Hide register form if user is logged in
@@ -305,11 +402,13 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutButton.style.display = 'block';
     if (sessionStorage.getItem('role') === 'admin') {
       adminPanel.style.display = 'block';
+      fetchUsers(); // Fetch users when admin logs in
     }
   } else {
     loginPanel.style.display = 'block';
     vehiclesPanel.style.display = 'block';
     adminPanel.style.display = 'none';
     logoutButton.style.display = 'none';
+    detailsPanel.style.display = 'none'; // Ensure details panel is hidden on page load
   }
 });

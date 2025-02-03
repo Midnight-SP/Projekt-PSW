@@ -69,46 +69,20 @@ const server = app.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
-  console.log('WebSocket connection established');
-
+  console.log('WebSocket client connected');
   ws.on('message', (message) => {
-    console.log(`Received message: ${message}`);
+    console.log('Received:', message);
   });
-
   ws.on('close', () => {
-    console.log('WebSocket connection closed');
+    console.log('WebSocket client disconnected');
   });
 });
 
-mqttClient.on('message', (topic, message) => {
-  const car = JSON.parse(message.toString());
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ topic, car }));
-    }
-  });
-});
-
-// Logging
-const winston = require('winston');
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' }),
-  ],
-});
-
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.url}`);
-  next();
-});
-
-// Sync database and start server
-sequelize.sync({ alter: true }).then(() => {
-  console.log('Database synced');
+// Synchronize database
+sequelize.sync().then(() => {
+  console.log('Database synchronized');
+}).catch(err => {
+  console.error('Error synchronizing database:', err);
 });
 
 module.exports = mqttClient;
