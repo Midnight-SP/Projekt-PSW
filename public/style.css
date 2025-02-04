@@ -16,9 +16,10 @@ h1 {
 
 #panels {
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
   width: 100%;
-  padding: 20px;
+  max-width: 1200px;
+  height: 80vh;
 }
 
 .panel {
@@ -29,42 +30,18 @@ h1 {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   width: 30%;
   box-sizing: border-box;
+  overflow-y: auto;
+}
+
+#vehicles-panel {
+  flex-grow: 1;
+  margin: 0 20px;
+}
+
+#car-details {
+  display: none;
 }
 
 #car-list {
   margin-top: 20px;
-}
-
-button {
-  border-radius: 5px;
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  margin: 2px;
-}
-
-button:hover {
-  background-color: #0056b3;
-}
-
-#car-details {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: #fff;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  width: 80%;
-  max-width: 600px;
-  display: none;
-}
-
-#car-details button {
-  margin-top: 10px;
 }

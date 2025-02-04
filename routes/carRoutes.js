@@ -1,73 +1,55 @@
 const express = require('express');
 const router = express.Router();
 const Car = require('../models/Car');
-const User = require('../models/User');
+const User = require('../models/User'); // Ensure User model is imported
 const authorize = require('../middleware/authorize');
-const bcrypt = require('bcrypt');
-const { Sequelize } = require('sequelize');
 const mqttClient = require('../server');
-
-// LOGIN
-router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  try {
-    const user = await User.findOne({ where: { username } });
-    if (user) {
-      const isMatch = await bcrypt.compare(password, user.password);
-      console.log(`Password match: ${isMatch}`);
-      if (isMatch) {
-        req.session.user = {
-          id: user.id,
-          username: user.username,
-          role: user.role
-        };
-        res.json({ message: 'Login successful', role: user.role, userId: user.id });
-      } else {
-        res.status(401).json({ message: 'Invalid credentials' });
-      }
-    } else {
-      res.status(401).json({ message: 'Invalid credentials' });
-    }
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'Internal Server Error' });
-  }
-});
-
-// REGISTER
-router.post('/register', async (req, res) => {
-  const { username, password, role } = req.body;
-  try {
-    const existingUser = await User.findOne({ where: { username } });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Username already taken' });
-    }
-    const user = await User.create({ username, password, role });
-    res.status(201).json({ message: 'User registered successfully', userId: user.id });
-  } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ message: 'Internal Server Error' });
-  }
-});
+const logger = require('../logger'); // Import the logger
 
 // CREATE (only for admin)
 router.post('/', authorize('admin'), async (req, res) => {
   try {
     const car = await Car.create(req.body);
     mqttClient.publish('cars/created', JSON.stringify(car));
+    logger.info(`Car created: ${car.id}`);
     res.status(201).json(car);
   } catch (err) {
+    logger.error('Error creating car:', err);
     res.status(400).json({ message: err.message });
   }
 });
 
 // READ
 router.get('/', async (req, res) => {
-  const limit = parseInt(req.query.limit, 10) || 10;
   try {
-    const cars = await Car.findAll({ limit });
+    const cars = await Car.findAll();
     res.json(cars);
   } catch (err) {
+    logger.error('Error fetching cars:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// READ by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const car = await Car.findByPk(req.params.id);
+    if (car) {
+      if (car.rentedBy) {
+        const user = await User.findByPk(car.rentedBy);
+        if (!user) {
+          // If the user does not exist, mark the car as available and remove the owner
+          car.rentedBy = null;
+          car.available = true;
+          await car.save();
+        }
+      }
+      res.json(car);
+    } else {
+      res.status(404).json({ message: 'Car not found' });
+    }
+  } catch (err) {
+    logger.error('Error fetching car details:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -79,11 +61,13 @@ router.put('/:id', authorize('admin'), async (req, res) => {
     if (car) {
       await car.update(req.body);
       mqttClient.publish('cars/updated', JSON.stringify(car));
+      logger.info(`Car updated: ${car.id}`);
       res.json(car);
     } else {
       res.status(404).json({ message: 'Car not found' });
     }
   } catch (err) {
+    logger.error('Error updating car:', err);
     res.status(400).json({ message: err.message });
   }
 });
@@ -95,141 +79,14 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
     if (car) {
       await car.destroy();
       mqttClient.publish('cars/deleted', JSON.stringify(car));
-      res.json({ message: 'Car deleted' });
+      logger.info(`Car deleted: ${car.id}`);
+      res.json({ message: 'Car deleted successfully' });
     } else {
       res.status(404).json({ message: 'Car not found' });
     }
   } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// SEARCH (available for all users)
-router.get('/search', async (req, res) => {
-  const { query, year, available, limit } = req.query;
-  const whereClause = {};
-
-  if (query) {
-    whereClause[Sequelize.Op.or] = [
-      { make: { [Sequelize.Op.like]: `%${query}%` } },
-      { model: { [Sequelize.Op.like]: `%${query}%` } }
-    ];
-  }
-
-  if (year) {
-    whereClause.year = year;
-  }
-
-  if (available !== undefined) {
-    whereClause.available = available === 'true';
-  }
-
-  try {
-    const cars = await Car.findAll({ where: whereClause, limit: parseInt(limit, 10) || 10 });
-    res.json(cars);
-  } catch (err) {
-    console.error('Search error:', err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get user details
-router.get('/users/:id', async (req, res) => {
-  try {
-    const user = await User.findByPk(req.params.id);
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: 'User not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get all users (only for admin)
-router.get('/users', authorize('admin'), async (req, res) => {
-  try {
-    const users = await User.findAll();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get user details with rented cars (only for admin)
-router.get('/users/:id', authorize('admin'), async (req, res) => {
-  try {
-    const user = await User.findByPk(req.params.id, {
-      include: {
-        model: Car,
-        as: 'rentedCars',
-        where: { rentedBy: req.params.id },
-        required: false
-      }
-    });
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: 'User not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Get car details
-router.get('/:id', async (req, res) => {
-  try {
-    const car = await Car.findByPk(req.params.id);
-    if (car) {
-      res.json(car);
-    } else {
-      res.status(404).json({ message: 'Car not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Rent a car
-router.post('/rent/:id', async (req, res) => {
-  try {
-    const car = await Car.findByPk(req.params.id);
-    if (car) {
-      if (car.available) {
-        await car.update({ available: false, rentedBy: req.session.user.id, rentedAt: new Date() });
-        mqttClient.publish('cars/rented', JSON.stringify(car));
-        res.json({ message: 'Car rented', rentedBy: req.session.user.username, rentedAt: new Date() });
-      } else {
-        res.status(400).json({ message: 'Car is not available' });
-      }
-    } else {
-      res.status(404).json({ message: 'Car not found' });
-    }
-  } catch (err) {
-    console.error('Rent car error:', err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Return a car
-router.post('/return/:id', async (req, res) => {
-  try {
-    const car = await Car.findByPk(req.params.id);
-    if (car) {
-      if (car.rentedBy === req.session.user.id) {
-        await car.update({ available: true, rentedBy: null, rentedAt: null });
-        mqttClient.publish('cars/returned', JSON.stringify(car));
-        res.json({ message: 'Car returned' });
-      } else {
-        res.status(400).json({ message: 'You did not rent this car' });
-      }
-    } else {
-      res.status(404).json({ message: 'Car not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    logger.error('Error deleting car:', err);
+    res.status(400).json({ message: err.message });
   }
 });
 

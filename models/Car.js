@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../sequelize');
+const User = require('./User'); // Ensure User model is imported
 
 const Car = sequelize.define('Car', {
   make: {
@@ -20,21 +21,15 @@ const Car = sequelize.define('Car', {
   },
   rentedBy: {
     type: DataTypes.INTEGER,
-    allowNull: true
+    allowNull: true,
+    references: {
+      model: User,
+      key: 'id'
+    }
   },
   rentedAt: {
     type: DataTypes.DATE,
     allowNull: true
-  },
-  seats: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 4 // Dodaj wartość domyślną
-  },
-  bodyType: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: 'sedan' // Dodaj wartość domyślną
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -43,13 +38,9 @@ const Car = sequelize.define('Car', {
   updatedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
-  },
-  currentUserName: {
-    type: DataTypes.VIRTUAL,
-    get() {
-      return this.User ? this.User.username : null;
-    }
   }
 });
+
+Car.belongsTo(User, { foreignKey: 'rentedBy', as: 'User' });
 
 module.exports = Car;

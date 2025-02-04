@@ -1,14 +1,14 @@
 function authorize(roles = []) {
-    if (typeof roles === 'string') {
-      roles = [roles];
-    }
-  
-    return (req, res, next) => {
-      if (!req.session.user || !roles.includes(req.session.user.role)) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
-      next();
-    };
+  if (typeof roles === 'string') {
+    roles = [roles];
   }
-  
-  module.exports = authorize;
+
+  return (req, res, next) => {
+    if (!req.session.user || !roles.includes(req.session.user.role)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    next();
+  };
+}
+
+module.exports = authorize;

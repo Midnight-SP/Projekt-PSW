@@ -3,10 +3,18 @@ const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const path = require('path');
 const session = require('express-session');
-const cookieParser = require('cookie-parser');
+const cookieParser = require('cookie-parser'); // Import cookie-parser
 const sequelize = require('./sequelize');
 const mqtt = require('mqtt');
 const { WebSocketServer } = require('ws');
+const logger = require('./logger'); // Import the logger
+const fs = require('fs');
+const https = require('https');
+
+// Load SSL certificates
+const privateKey = fs.readFileSync('server.key', 'utf8');
+const certificate = fs.readFileSync('server.cert', 'utf8');
+const credentials = { key: privateKey, cert: certificate };
 
 const app = express();
 const port = 3000;
@@ -14,7 +22,7 @@ const port = 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(helmet());
-app.use(cookieParser());
+app.use(cookieParser()); // Use cookie-parser
 
 // Custom CSP configuration
 app.use(
@@ -22,7 +30,7 @@ app.use(
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "https://unpkg.com"],
-      connectSrc: ["'self'", "wss://broker.hivemq.com:8000", "ws://localhost:1883", "ws://localhost:3000"],
+      connectSrc: ["'self'", "wss://broker.hivemq.com:8000", "wss://localhost:3000"],
       imgSrc: ["'self'", "data:"],
     },
   })
@@ -33,7 +41,7 @@ app.use(session({
   secret: 'your-secret-key',
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false } // Set to true if using HTTPS
+  cookie: { secure: true } // Set to true if using HTTPS
 }));
 
 // Serve static files
@@ -49,68 +57,46 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 const carRoutes = require('./routes/carRoutes');
+const userRoutes = require('./routes/userRoutes');
 app.use('/api/cars', carRoutes);
+app.use('/api/users', userRoutes);
 
 // MQTT setup
 const mqttClient = mqtt.connect('mqtt://localhost:1883'); // Ensure this matches your broker's address and port
 
 mqttClient.on('connect', () => {
-  console.log('Connected to MQTT broker');
+  logger.info('Connected to MQTT broker');
   mqttClient.subscribe('cars/#'); // Subscribe to all car-related topics
 });
 
 mqttClient.on('error', (err) => {
-  console.error('MQTT connection error:', err);
+  logger.error('MQTT connection error:', err);
 });
 
 // WebSocket setup
-const server = app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
-
+const server = https.createServer(credentials, app);
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
-  console.log('WebSocket connection established');
-
+  logger.info('WebSocket client connected');
   ws.on('message', (message) => {
-    console.log(`Received message: ${message}`);
+    logger.info('Received:', message);
   });
-
   ws.on('close', () => {
-    console.log('WebSocket connection closed');
+    logger.info('WebSocket client disconnected');
   });
 });
 
-mqttClient.on('message', (topic, message) => {
-  const car = JSON.parse(message.toString());
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ topic, car }));
-    }
-  });
+// Start the server
+server.listen(port, () => {
+  logger.info(`Server running at https://localhost:${port}`);
 });
 
-// Logging
-const winston = require('winston');
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' }),
-  ],
-});
-
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.url}`);
-  next();
-});
-
-// Sync database and start server
-sequelize.sync({ alter: true }).then(() => {
-  console.log('Database synced');
+// Synchronize database
+sequelize.sync().then(() => {
+  logger.info('Database synchronized');
+}).catch(err => {
+  logger.error('Error synchronizing database:', err);
 });
 
 module.exports = mqttClient;
