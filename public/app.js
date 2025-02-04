@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userList = document.getElementById('user-list');
 
   // WebSocket client setup
-  const ws = new WebSocket('ws://localhost:3000');
+  const ws = new WebSocket('wss://localhost:3000');
 
   ws.onopen = () => {
     console.log('Connected to WebSocket server');
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data => {
         if (Array.isArray(data)) {
           carList.innerHTML = ''; // Clear previous results
-          const userRole = sessionStorage.getItem('role');
+          const userRole = getCookie('role');
           data.forEach(car => {
             const carItem = document.createElement('div');
             carItem.classList.add('car-item');
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch(`/api/cars/${carId}`)
       .then(response => response.json())
       .then(car => {
-        const userRole = sessionStorage.getItem('role');
+        const userRole = getCookie('role');
         if (userRole === 'admin' && car.rentedBy) {
           fetch(`/api/users/${car.rentedBy}`)
             .then(response => response.json())
@@ -86,8 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function displayCarDetails(car, user) {
-    const userId = sessionStorage.getItem('userId');
-    const userRole = sessionStorage.getItem('role');
+    const userId = getCookie('userId');
+    const userRole = getCookie('role');
     const rentButton = userId && car.available ? `<button id="rent-button">Rent</button>` : '';
     const returnButton = userId && car.rentedBy === parseInt(userId) ? `<button id="return-button">Return</button>` : '';
     const rentedByInfo = userRole === 'admin' ? `<p>Rented By: ${user ? user.username : 'N/A'}</p>` : '';
@@ -269,8 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(data => {
       if (data.message === 'Login successful') {
         alert('Login successful');
-        sessionStorage.setItem('role', data.role);
-        sessionStorage.setItem('userId', data.userId);
+        document.cookie = `userId=${data.userId}; path=/; secure; HttpOnly`;
+        document.cookie = `role=${data.role}; path=/; secure; HttpOnly`;
         loginPanel.style.display = 'none';
         vehiclesPanel.style.display = 'block';
         logoutButton.style.display = 'block';
@@ -287,8 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   logoutButton.addEventListener('click', () => {
-    sessionStorage.removeItem('role');
-    sessionStorage.removeItem('userId');
+    document.cookie = 'userId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     loginPanel.style.display = 'block';
     vehiclesPanel.style.display = 'block';
     adminPanel.style.display = 'none';
@@ -344,10 +344,10 @@ document.addEventListener('DOMContentLoaded', () => {
             carItem.classList.add('car-item');
             carItem.innerHTML = `
               <span>${car.make} ${car.model} (${car.year})</span>
-              ${sessionStorage.getItem('role') === 'admin' ? `<button class="edit-car" data-id="${car.id}">Edit</button>` : ''}
-              ${sessionStorage.getItem('role') === 'admin' ? `<button class="delete-car" data-id="${car.id}">Delete</button>` : ''}
+              ${getCookie('role') === 'admin' ? `<button class="edit-car" data-id="${car.id}">Edit</button>` : ''}
+              ${getCookie('role') === 'admin' ? `<button class="delete-car" data-id="${car.id}">Delete</button>` : ''}
             `;
-            if (sessionStorage.getItem('role') === 'admin') {
+            if (getCookie('role') === 'admin') {
               carItem.querySelector('.edit-car').onclick = (event) => {
                 event.stopPropagation();
                 editCar(car);
@@ -388,10 +388,10 @@ document.addEventListener('DOMContentLoaded', () => {
       carItem.classList.add('car-item');
       carItem.innerHTML = `
         <span>${car.make} ${car.model} (${car.year})</span>
-        ${sessionStorage.getItem('role') === 'admin' ? `<button class="edit-car" data-id="${car.id}">Edit</button>` : ''}
-        ${sessionStorage.getItem('role') === 'admin' ? `<button class="delete-car" data-id="${car.id}">Delete</button>` : ''}
+        ${getCookie('role') === 'admin' ? `<button class="edit-car" data-id="${car.id}">Edit</button>` : ''}
+        ${getCookie('role') === 'admin' ? `<button class="delete-car" data-id="${car.id}">Delete</button>` : ''}
       `;
-      if (sessionStorage.getItem('role') === 'admin') {
+      if (getCookie('role') === 'admin') {
         carItem.querySelector('.edit-car').onclick = (event) => {
           event.stopPropagation();
           editCar(car);
@@ -408,11 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Hide register form if user is logged in
-  if (sessionStorage.getItem('userId')) {
+  if (getCookie('userId')) {
     loginPanel.style.display = 'none';
     vehiclesPanel.style.display = 'block';
     logoutButton.style.display = 'block';
-    if (sessionStorage.getItem('role') === 'admin') {
+    if (getCookie('role') === 'admin') {
       adminPanel.style.display = 'block';
       fetchUsers(); // Fetch users when admin logs in
     }
@@ -422,5 +422,11 @@ document.addEventListener('DOMContentLoaded', () => {
     adminPanel.style.display = 'none';
     logoutButton.style.display = 'none';
     detailsPanel.style.display = 'none'; // Ensure details panel is hidden on page load
+  }
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
   }
 });

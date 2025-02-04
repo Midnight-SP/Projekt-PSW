@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const authorize = require('../middleware/authorize');
 const bcrypt = require('bcrypt');
+const logger = require('../logger'); // Import the logger
 
 // Login route
 router.post('/login', async (req, res) => {
@@ -17,15 +18,20 @@ router.post('/login', async (req, res) => {
           username: user.username,
           role: user.role
         };
+        res.cookie('userId', user.id, { httpOnly: true, secure: true }); // Set userId cookie
+        res.cookie('role', user.role, { httpOnly: true, secure: true }); // Set role cookie
+        logger.info(`User logged in: ${user.username}`);
         res.json({ message: 'Login successful', role: user.role, userId: user.id });
       } else {
+        logger.warn(`Invalid credentials for user: ${username}`);
         res.status(401).json({ message: 'Invalid credentials' });
       }
     } else {
+      logger.warn(`Invalid credentials for user: ${username}`);
       res.status(401).json({ message: 'Invalid credentials' });
     }
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error('Login error:', err);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
@@ -36,6 +42,7 @@ router.get('/', authorize('admin'), async (req, res) => {
     const users = await User.findAll();
     res.json(users);
   } catch (err) {
+    logger.error('Error fetching users:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -50,6 +57,7 @@ router.get('/:id', authorize('admin'), async (req, res) => {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (err) {
+    logger.error('Error fetching user details:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -60,11 +68,13 @@ router.put('/:id', authorize('admin'), async (req, res) => {
     const user = await User.findByPk(req.params.id);
     if (user) {
       await user.update({ role: req.body.role });
+      logger.info(`User role updated: ${user.username}`);
       res.json({ message: 'User role updated successfully' });
     } else {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (err) {
+    logger.error('Error updating user role:', err);
     res.status(400).json({ message: err.message });
   }
 });
@@ -75,11 +85,13 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
     const user = await User.findByPk(req.params.id);
     if (user) {
       await user.destroy();
+      logger.info(`User deleted: ${user.username}`);
       res.json({ message: 'User deleted successfully' });
     } else {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (err) {
+    logger.error('Error deleting user:', err);
     res.status(400).json({ message: err.message });
   }
 });
